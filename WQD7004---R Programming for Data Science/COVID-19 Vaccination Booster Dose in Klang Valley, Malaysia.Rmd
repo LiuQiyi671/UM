@@ -1,0 +1,636 @@
+---
+title: "WQD7004 Group Assignment"
+author: | 
+  | Group 8:
+  |
+  |    Shijie Zheng s2108562 
+  |    Muhammad Bilal S2002035 
+  |    Gui Miow Wan S2118013 
+  |    Yang Fan S2100824 
+  |    Qiyi Liu S2106632 
+  |
+output: html_document
+---
+
+# Regression of COVID-19 Vaccination Booster Dose Count and Clustering of Fully Vaccinated by Age Group in Klang Valley, Malaysia 
+
+### Part 1: Introduction
+#### 1.1 Introduction of coronavirus disease 2019
+Coronavirus disease 2019 (COVID-19) is caused by the 2019 novel coronavirus (2019-nCOV) first reported in the city of Wuhan, China. The epidemic began in December 2019, when several adults in Wuhan presented with serious pneumonia. Since then, the infection has spread globally and the number of cases increased exponentially, with more than 90 million people infected by January 2020. The COVID-19 pandemic impacted the socioeconomic well-being of many countries in 2020. It has been believed that vaccination would be the most promising alternative to get life back to normal.
+
+With the proposed vaccination campaign, countries are considering opening economic operations to reactivate the socio-economy activities. In Malaysia, vaccines were scheduled to arrive in the mid of the first quarter of 2020. Therefore, it is of great significance to help the government and the public to predict the registration of the COVID-19 vaccine in the future.
+
+In this paper, we pay special attention to Kuala Lumpur and Selangor in Malaysia. We introduced how to do Regression of COVID-19 Vaccination Booster Dose Count, and how to do Clustering of Fully Vaccinated by Age Group in Klang Valley, Malaysia.
+
+#### 1.2 Project Objective
+Our project is mainly to predict the number of booster injections in each age group in different states in the next 1 month. After preprocessing the original dataset, we have done a very comprehensive visualization and EDA of the new dataset. 
+
+First of all, we used some regression models to predict the number of booster shots for the next 1 month for each age range at different states.
+
+Next, due to our existing dataset is not suitable to do clustering, we used a different data set to do the clustering of Fully Vaccinated by Age Group in Klang Valley, Malaysia.
+
+In general, we used the clustering model and the regression models (linear regression and random forest). The regression models can help predict the number of booster shots in the coming month, and the method of random forest is more accurate. The clustering model can help determine the age group of fully vaccinated people infected with covid-19 after the first and second doses of vaccine.
+
+### Part 2: Getting Data
+The dataset we chose to use is open data on Malaysia's vaccination rollout published by MoH collaborates with MoSTI and the COVID-19 Immunisation Task Force (CITF). All relevant data such as the number of vaccinations in different age groups can be found in can be found from this link: https://github.com/MoH-Malaysia/covid19-public.
+
+R package required for the project is loaded.
+```{r}
+library(dplyr)
+library(tidyverse)
+library(kableExtra)
+library(plotly)
+library(lattice)
+library(caret)
+library(carData)
+library(car)
+library(corrplot)
+library(caTools)
+library(cowplot)
+library(rpart)
+library(lubridate)
+library(factoextra)
+library(ggfortify)
+library(forecast)
+```
+
+#### **Dataset: vax_demog_age.csv**
+
+The dataset is read and assigned as vaccination
+```{r}
+vaccination <- read.csv("vax_demog_age.csv")
+```
+
+First 5 rows of vaccination data are viewed.
+```{r}
+head(vaccination) %>%
+  kable() %>%
+  kable_styling()
+```
+
+Object-oriented classification of vaccination data is determined.
+```{r}
+class(vaccination)
+
+typeof(vaccination)
+```
+
+Dimension of vaccination data is determined.
+```{r}
+dim(vaccination)
+```
+**It is a data frame with 48348 rows and 30 columns.**
+
+Content of vaccination data is determined.
+```{r}
+glimpse(vaccination)
+```
+
+Structure of vaccination data is determined.
+```{r}
+str(vaccination)
+```
+
+Summary of vaccination data is determined.
+```{r}
+summary(vaccination)
+```
+
+Number of attributes in vaccination data is determined.
+```{r}
+length(vaccination)
+```
+**A total of 30 attributes are presented in vaccination data.**
+
+Every attributes of vaccination data are determined.
+```{r}
+names(vaccination)
+```
+**The attributes of vaccination data contained date, state, district, partial_12_17, full_12_17, booster_12_17, partial_18_29, full_18_29, booster_18_29, partial_30_39, full_30_39, booster_30_39, partial_40_49, full_40_49, booster_40_49, partial_50_59, full_50_59, booster_50_59, partial_60_69, full_60_69, booster_60_69, partial_70_79, full_70_79, booster_70_79, partial_80, full_80, booster_80, partial_missing, full_missing, booster_missing.**
+
+
+
+### Part 3: Data Preprocessing
+Amount of missing value in vaccination data is calculated.
+```{r}
+sum(is.na(vaccination))
+```
+
+Attributes of vaccination data are renamed to have a clearer view of the data.
+
+Unwanted attributes of vaccination data such as district, Partial_missing,Full_missing and Booster_missing are removed.
+
+Only the data for the two states of Kuala Lumpur and Selangor are kept for future forecasts.
+
+```{r}
+vaccination <- vaccination %>%
+  rename(Date= date,
+         State = state,
+         District = district,
+         Partial_12_17 = partial_12_17, 
+         Full_12_17 = full_12_17,
+         Booster_12_17 = booster_12_17,
+         Partial_18_29 = partial_18_29,
+         Full_18_29 = full_18_29,
+         Booster_18_29 = booster_18_29,
+         Partial_30_39 = partial_30_39,
+         Full_30_39 = full_30_39,
+         Booster_30_39 = booster_30_39,
+         Partial_40_49 = partial_40_49,
+         Full_40_49 = full_40_49,
+         Booster_40_49 = booster_40_49,
+         Partial_50_59 = partial_50_59,
+         Full_50_59 = full_50_59,
+         Booster_50_59 = booster_50_59,
+         Partial_60_69 = partial_60_69,
+         Full_60_69 = full_60_69,
+         Booster_60_69 = booster_60_69,
+         Partial_70_79 = partial_70_79,
+         Full_70_79 = full_70_79,
+         Booster_70_79 = booster_70_79,
+         Partial_80 = partial_80,
+         Full_80 = full_80,
+         Booster_80 = booster_80,
+         Partial_missing = partial_missing,
+         Full_missing = full_missing,
+         Booster_missing = booster_missing) %>%
+  select(Date,
+         State,
+         Partial_12_17, 
+         Full_12_17,
+         Booster_12_17,
+         Partial_18_29,
+         Full_18_29,
+         Booster_18_29,
+         Partial_30_39,
+         Full_30_39,
+         Booster_30_39,
+         Partial_40_49,
+         Full_40_49,
+         Booster_40_49,
+         Partial_50_59,
+         Full_50_59,
+         Booster_50_59,
+         Partial_60_69,
+         Full_60_69,
+         Booster_60_69,
+         Partial_70_79,
+         Full_70_79,
+         Booster_70_79,
+         Partial_80,
+         Full_80,
+         Booster_80) %>%
+  filter(State %in% c('W.P. Kuala Lumpur', 'Selangor'))
+
+vaccination$Date <- as.Date(vaccination$Date)
+vaccination <- vaccination %>%  
+  filter(vaccination$Date < as.Date("2022-01-01"))
+vaccination<-aggregate(vaccination[,c(3:26)], by=list(vaccination$Date,vaccination$State), sum)
+vaccination<-cbind(vaccination,vaccination$Full_18_29 + vaccination$Full_30_39 + vaccination$Full_40_49 + vaccination$Full_50_59)
+vaccination<-cbind(vaccination,vaccination$Full_60_69 + vaccination$Full_70_79 + vaccination$Full_80)
+```
+
+First and last 20 rows of cleaned vaccination data are viewed.
+```{r}
+colnames(vaccination) <- c('Date',
+         'State',
+         'Partial_12_17', 
+         'Full_12_17',
+         'Booster_12_17',
+         'Partial_18_29',
+         'Full_18_29',
+         'Booster_18_29',
+         'Partial_30_39',
+         'Full_30_39',
+         'Booster_30_39',
+         'Partial_40_49',
+         'Full_40_49',
+         'Booster_40_49',
+         'Partial_50_59',
+         'Full_50_59',
+         'Booster_50_59',
+         'Partial_60_69',
+         'Full_60_69',
+         'Booster_60_69',
+         'Partial_70_79',
+         'Full_70_79',
+         'Booster_70_79',
+         'Partial_80',
+         'Full_80',
+         'Booster_80',
+         'Full_18_59',
+         'Full_60_80')
+head(vaccination,10) %>%
+  kable() %>%
+  kable_styling()
+tail(vaccination,10) %>%
+  kable() %>%
+  kable_styling()
+```
+
+Dimension of cleaned vaccination data is determined.
+```{r}
+dim(vaccination)
+```
+
+Content of cleaned vaccination data is determined.
+```{r}
+glimpse(vaccination)
+```
+
+Structure of cleaned vaccination data is determined.
+```{r}
+str(vaccination)
+```
+
+Summary of cleaned vaccination data is determined.
+```{r}
+summary(vaccination)
+```
+
+### Part 4: Exploratory Data Analysis / Data Visualization
+#### Data Visualization
+```{r}
+AgeGroup.order <- c("Age: 12-17","Age: 18-29","Age: 30-39","Age: 40-49","Age: 50-59","Age: 60-69","Age: 70-79","Age: >80")
+month.order <- c("January","February","March","April","May","June","July","August","September","October","November","December")
+```
+
+
+Total of Full Vaccination in Klang Valley, Malaysia in Year 2021
+```{r}
+vaccination %>%
+  select("Date","State","Full_12_17","Full_18_59","Full_60_80") %>%
+  mutate(totalfullvac = Full_12_17 + Full_18_59 + Full_60_80,
+         month = factor(format(as.Date(Date),"%B"),levels=month.order)) %>%
+  group_by(State,month) %>%
+  summarise(totalfullvac = sum(totalfullvac)) %>%
+  ggplot(aes(x = month,y=totalfullvac,label=totalfullvac)) +
+  geom_histogram(binwidth = 1,stat='identity',fill="#D5FFBB")+ 
+  geom_label(size = 3, position = position_stack(vjust = 1.1))+
+  coord_flip()+
+  facet_wrap(~State)+
+  theme_bw() +
+  labs(x="Month",y="Total Full Vaccination",title="Total of Full Vaccination in Klang Valley, Malaysia in Year 2021")
+```
+
+##### August 2021 has the highest count number of people who get fully vaccinated in Klang Valley, Malaysia.
+
+```{r}
+partialVac <- 
+vaccination %>%
+  select("Date","State","Partial_12_17","Partial_18_29","Partial_30_39","Partial_40_49",
+         "Partial_50_59","Partial_60_69","Partial_70_79","Partial_80") %>%
+  gather(key="AgeGroup", value="PartialCount","Partial_12_17","Partial_18_29","Partial_30_39",
+         "Partial_40_49","Partial_50_59","Partial_60_69","Partial_70_79","Partial_80")  %>%
+  mutate(AgeGroup = factor(case_when(
+    AgeGroup == 'Partial_12_17'~ "Age: 12-17",
+    AgeGroup == 'Partial_18_29'~ "Age: 18-29",
+    AgeGroup == 'Partial_30_39'~ "Age: 30-39",
+    AgeGroup == 'Partial_40_49'~ "Age: 40-49",
+    AgeGroup == 'Partial_50_59'~ "Age: 50-59",
+    AgeGroup == 'Partial_60_69'~ "Age: 60-69",
+    AgeGroup == 'Partial_70_79'~ "Age: 70-79",
+    AgeGroup == 'Partial_80'~ "Age: >80"
+  ),levels = AgeGroup.order)) 
+```
+
+Trend of partial vaccination as of December 2021 in Klang Valley, Malaysia
+```{r}
+partialVac %>%
+  ggplot(aes(x = Date, y = PartialCount, fill=State)) +
+  geom_point(aes(color=State))+
+  geom_smooth()+
+  theme_bw()+
+  facet_wrap(~AgeGroup) +
+  labs(title="Trend of Partial Vaccinated as of December 2021 in Klang Valley, Malaysia") 
+```
+
+##### The age range group from 18 to 29 have the most people who have their first COVID-19 vaccine in the mid-year of 2021.
+
+```{r}
+fullVac <- vaccination %>%
+  select("Date","State","Full_12_17","Full_18_29","Full_30_39","Full_40_49","Full_50_59","Full_60_69","Full_70_79","Full_80") %>%
+  gather(key="AgeGroup", value="FullCount","Full_12_17","Full_18_29","Full_30_39","Full_40_49","Full_50_59","Full_60_69","Full_70_79","Full_80")  %>%
+  mutate(AgeGroup = factor(case_when(
+    AgeGroup == 'Full_12_17'~ "Age: 12-17",
+    AgeGroup == 'Full_18_29'~ "Age: 18-29",
+    AgeGroup == 'Full_30_39'~ "Age: 30-39",
+    AgeGroup == 'Full_40_49'~ "Age: 40-49",
+    AgeGroup == 'Full_50_59'~ "Age: 50-59",
+    AgeGroup == 'Full_60_69'~ "Age: 60-69",
+    AgeGroup == 'Full_70_79'~ "Age: 70-79",
+    AgeGroup == 'Full_80'~ "Age: >80"
+  ),levels = AgeGroup.order))
+```
+
+
+Trend of Fully Vaccinated as of December 2021 in Klang Valley, Malaysia
+```{r}
+fullVac %>%
+  ggplot(aes(x = Date, y = FullCount, fill=State)) +
+  geom_point(aes(color=State))+
+  geom_smooth()+
+  theme_bw()+
+  facet_wrap(~AgeGroup) +
+  labs(title="Trend of Fully Vaccinated as of December 2021 in Klang Valley, Malaysia") 
+```
+
+##### The age range group from 18 to 29 have the most people who completed their COVID-19 vaccine in the mid-year of 2021.
+
+
+Boxplot of Fully Vaccinated Count group by Month of Year 2021 in Klang Valley, Malaysia
+```{r}
+fullVac %>%
+  mutate(Month = factor(format(as.Date(fullVac$Date),"%B"),levels=month.order)) %>%
+  group_by(AgeGroup,Month)  %>%
+  ggplot(aes(x=Month,y=FullCount, group = Month,color = Month))+
+  geom_boxplot()+
+  coord_flip()+
+  theme_bw() +
+  facet_wrap(~AgeGroup) +
+  labs(y ="Fully Vaccinated", title="Boxplot of Fully Vaccinated Count group by Month of Year 2021 in Klang Valley, Malaysia") 
+
+```
+
+
+Booster shot starts from October 2021, so observation before October 2021 is being removed.
+```{r}
+boosterVac <- vaccination %>%
+  mutate(Month = factor(format(as.Date(Date),"%B"),levels=month.order)) %>%
+  filter(Month %in% c("October","November","December")) %>%
+  select("Month","Date","State","Booster_12_17","Booster_18_29","Booster_30_39",
+         "Booster_40_49","Booster_50_59","Booster_60_69","Booster_70_79","Booster_80") %>%
+  gather(key="AgeGroup", value="BoosterCount","Booster_12_17","Booster_18_29","Booster_30_39",
+         "Booster_40_49","Booster_50_59","Booster_60_69","Booster_70_79","Booster_80")  %>%
+  mutate(AgeGroup = factor(case_when(
+    AgeGroup == 'Booster_12_17'~ "Age: 12-17",
+    AgeGroup == 'Booster_18_29'~ "Age: 18-29",
+    AgeGroup == 'Booster_30_39'~ "Age: 30-39",
+    AgeGroup == 'Booster_40_49'~ "Age: 40-49",
+    AgeGroup == 'Booster_50_59'~ "Age: 50-59",
+    AgeGroup == 'Booster_60_69'~ "Age: 60-69",
+    AgeGroup == 'Booster_70_79'~ "Age: 70-79",
+    AgeGroup == 'Booster_80'~ "Age: >80"
+  ),levels = AgeGroup.order)) 
+```
+
+Trend of Booster Shot as of December 2021 in Klang Valley, Malaysia
+```{r}
+boosterVac  %>%
+  ggplot(aes(Date,BoosterCount,fill=State)) +
+  geom_point(aes(color=State),alpha=0.5)+
+  theme_bw()+
+  facet_wrap(~AgeGroup) +
+  labs(title="Trend of Booster Shot as of December 2021 in Klang Valley, Malaysia") 
+```
+
+Boxplot of Booster Vaccine Count group by Month of Year 2021 in Klang Valley, Malaysia
+```{r}
+boosterVac%>%
+  group_by(AgeGroup,Month)  %>%
+  ggplot(aes(x=Month,y=BoosterCount, group = Month,color = Month))+
+  geom_boxplot()+
+  coord_flip()+
+  theme_bw() +
+  facet_wrap(~AgeGroup) +
+  labs(y ="Fully Vaccinated", title="Boxplot of Booster Vaccine Count group by Month of Year 2021 in Klang Valley, Malaysia") 
+```
+
+##### Booster shot still continuously increasing at the end of the Year 2021.
+##### The age range group from 12 to 17 had not start booster dose as of end of December 2021.
+
+
+### Part 5: Machine Learning Model: Regression
+#### 5.1 Linear Regression
+```{r}
+boosterVac_pop_date <-
+  vaccination %>%
+  mutate(Booster_18_59 = Booster_18_29 + Booster_30_39 + Booster_40_49 + Booster_50_59,
+         Booster_60_80 = Booster_60_69 + Booster_70_79 + Booster_80,
+         State = factor(State)
+  )%>%
+  dplyr::select("Date","State","Booster_12_17","Booster_18_59","Booster_60_80")  %>%
+  filter (format(as.Date(Date),"%B") %in% c("October","November","December")) %>%
+  group_by(Date,State) %>%
+  summarise(Booster_12_17 = sum(Booster_12_17),
+            Booster_18_59 = sum(Booster_18_59),
+            Booster_60_80 = sum(Booster_60_80)) 
+
+head(boosterVac_pop_date,10)
+```
+Predicting the number of booster shot for the next month for each age range using multiple regression
+```{r}
+boosterVac_lm <- boosterVac_pop_date %>%
+  dplyr::select(-c(Booster_12_17))
+```
+
+Train-test split is carried out with 80-20 split ratio.
+```{r}
+set.seed(2000)
+for_splitting <- sample.split(Y = boosterVac_lm$Booster_18_59, SplitRatio = 0.8) 
+boosterVac_train <- subset(boosterVac_lm, for_splitting == TRUE)
+boosterVac_test <- subset(boosterVac_lm, for_splitting == FALSE)
+```
+
+Sanity check of correct train-test split is performed.
+```{r}
+nrow(boosterVac_train) + nrow(boosterVac_test) == nrow(boosterVac_lm)
+```
+
+Due to the presence of extreme boosterVac outliers, 2 train sets are created.
+All Booster_18_59 include outliers are assigned as boosterVac_train.
+Booster_18_59 exclude outliers are assigned as boosterVac_train_without_outlier.
+```{r}
+boosterVac_train_without_outlier <- boosterVac_train %>% 
+  filter(Booster_18_59 <= quantile(boosterVac_lm$Booster_18_59, 0.9) & 
+           Booster_18_59 >= quantile(boosterVac_lm$Booster_18_59, 0.1))
+```
+
+BoosterVac variance of train_set and train_set_without_outlier are calculated.
+```{r}
+var(boosterVac_train$Booster_18_59)
+var(boosterVac_train_without_outlier$Booster_18_59)
+```
+
+Train set without outlier has significantly lower variance as compared to train set with extreme outliers.
+Due to the presence of extreme boosterVac outliers, 2 test sets are created.
+All Booster_18_59 include outliers are assigned as Booster_18_59_test.
+Booster_18_59 exclude outliers are assigned as Booster_18_59_test_without_outlier.
+```{r}
+boosterVac_test_without_outlier <- boosterVac_test %>% 
+  filter(Booster_18_59 <= quantile(boosterVac_test$Booster_18_59, 0.9) & 
+           Booster_18_59 >= quantile(boosterVac_test$Booster_18_59, 0.1))
+```
+
+BoosterVac variance of test set and test set without outlier are calculated.
+```{r}
+var(boosterVac_test$Booster_18_59)
+var(boosterVac_test_without_outlier$Booster_18_59)
+```
+
+creating a model to predict dependent variable (Booster_18_59) using few identified dependent variables (Date)
+```{r}
+lin_reg_model <- lm(Booster_18_59 ~ Date, data = boosterVac_train)
+```
+
+using testset to predict the number of booster BoosterCount
+```{r}
+predicted_Booster_18_59 <- predict(lin_reg_model, boosterVac_test)
+```
+
+obtaining difference between actual and predicted values, error = prediction (predicted_Booster_18_59) - actual (Booster_18_59)
+```{r}
+error <- boosterVac_test$Booster_18_59 - predicted_Booster_18_59
+
+accuracy(predicted_Booster_18_59, boosterVac_test$Booster_18_59)
+```
+
+```{r}
+summary(lin_reg_model)
+plot(lin_reg_model)
+```
+
+```{r}
+lin_reg_model_2 <- lm(Booster_18_59 ~ Date, data = boosterVac_train_without_outlier)
+predicted_BoosterCount <- predict(lin_reg_model_2, boosterVac_test_without_outlier)
+error <- boosterVac_test_without_outlier$Booster_18_59 - predicted_BoosterCount
+accuracy(predicted_BoosterCount, boosterVac_test_without_outlier$Booster_18_59)
+
+summary(lin_reg_model_2)
+plot(lin_reg_model_2)
+```
+
+First linear regression model does not satisfy linear model assumptions as shown clearly by normal Q-Q plot(normal Q-Q plot should be straight line).
+Since first model seems bad, it will not be used to predict new BoosterVac.Second linear regression model is modeled.
+square root transformation is introduced in second linear regression model and boosterVac_train_without_outlier is used so that outliers are removed.
+```{r}
+
+second_model <- lm(sqrt(Booster_18_59) ~ ., data = boosterVac_train_without_outlier)
+#The results are summarized.
+summary(second_model)
+plot(second_model)
+```
+
+#### 5.2 Backward Stepwise Model with First Linear Regression Model
+Backward stepwise model using first linear regression model is modeled.
+```{r}
+backward_first_model <- step(lin_reg_model, direction = 'backward')
+summary(backward_first_model)
+rmse_first_model <- sqrt(mean((residuals(backward_first_model)^2))) 
+print(rmse_first_model)
+```
+
+#### 5.3 Backward Stepwise Model with Second Linear Regression Model
+Backward stepwise model using second linear regression model is modeled.
+```{r}
+backward_second_model <- step(second_model, direction = 'backward')
+summary(backward_second_model)
+vif(backward_second_model) 
+rmse_second_model <- sqrt(mean((residuals(backward_second_model)^2))) 
+print(rmse_second_model)
+```
+
+##### RMSE of backward stepwise model using second model is 12.84826, a better model compared to backward stepwise model using first model which is 6507.041 as lower values of RMSE indicate better fit.
+
+#### 5.4 BoosterVac Prediction
+boosterVac for testing set without outliers are predicted.
+```{r}
+predict_regression <- predict(second_model, newdata = boosterVac_test_without_outlier)
+predict_regression <- exp(predict_regression)
+RMSE_regression <- sqrt(mean( (boosterVac_test_without_outlier$Booster_18_59 - predict_regression)**2 ))
+print(RMSE_regression)
+```
+
+The sum of squared deviations of actual values from predicted values is calculated.
+```{r}
+SSE <- sum((boosterVac_test_without_outlier$Booster_18_59 - predict_regression)**2)
+print(SSE)
+```
+
+The sum of squared deviations of predicted values from the mean value is calculated.
+```{r}
+SSR <- sum((predict_regression - mean(boosterVac_test_without_outlier$Booster_18_59)) ** 2)
+print(SSR)
+```
+
+R-squared, a statistical measure of how close the data are to the fitted regression line, is calculated.
+```{r}
+R2 <- 1 - SSE/(SSE + SSR)
+print(R2)
+```
+
+Scatter plot of observed and predicted value group by State is plotted.
+```{r}
+regression_results <- tibble(
+  obs = boosterVac_test_without_outlier$Booster_18_59,
+  pred = predict_regression,
+  diff = pred - obs,
+  abs_diff = abs(pred - obs),
+  type = boosterVac_test_without_outlier$State)
+
+regression_plot <- regression_results %>% 
+  ggplot(aes(obs, pred)) +
+  ggtitle("Observed vs predicted",
+          subtitle = "Linear regression model") + 
+  geom_abline(slope = 1, intercept = 0, color = "blue", linetype = 2) +
+  facet_wrap(~type)
+ggplotly(regression_plot)
+```
+
+### Part 6: Machine Learning Model: Clustering
+Due to our existing dataset is not suitable to do clustering, we will using different data set
+
+Problem: What is the likely age group of a fully vaccinated person who has contracted COVID-19 post both 1st and 2nd dose of vaccination?
+
+#### 6.1 Import dataset
+```{r}
+daily_cases01 <- read.csv("linelist_cases_04.csv")
+daily_cases02 <- read.csv("linelist_cases_05.csv")
+
+daily_cases_all <- union(daily_cases01,daily_cases02)
+sample_n(daily_cases_all,3)
+
+```
+
+#### 6.2 Basic Pre-processing
+We use data from 1st October 2021 to 31st October 2021.
+We remove all null value as we are looking at cases with fully vaccinated person.
+We only keep Selangor and WP Kuala Lumpur for observation.
+```{r}
+daily_cases <-
+daily_cases_all %>%
+  filter(date >= as.Date("2021-10-01") & 
+           date < as.Date("2022-01-01") &
+            state %in% c(10,14)
+         )
+
+sum(is.na(daily_cases))
+colSums(is.na(daily_cases))
+
+daily_cases_dose <-
+  daily_cases %>%
+  drop_na(c(days_dose1,days_dose2))  %>%
+  dplyr::select ("days_dose1","days_dose2","age") %>%
+  filter(age>0)
+
+sample_n(daily_cases_dose,20)
+```
+
+#### 6.3 Kmeans Clustering
+```{r}
+daily_cases_dose.scale <- scale(daily_cases_dose)  
+km = kmeans(daily_cases_dose.scale,centers = 5,iter.max=100,nstart=100)
+km
+
+```
+
+```{r}
+fviz_cluster(km,data = daily_cases_dose, ellipse.type ="norm",
+             palette = "Set2", ggtheme = theme_bw(), 
+             geom = "point")  
+```
+
+### Part 7: Conclusion
+For regression of booster doses for people aged 18 to 59, a linear regression model with square root transformation and outlier removal performs better and fit perfectly.
+
+For clustering, we used the K-means algorithm because it provides really good accuracy in the clustering algorithm; we have created 5 clusters, and we mostly focus on the age group of fully vaccinated person who is infected by COVID-19.
